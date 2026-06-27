@@ -702,7 +702,8 @@
   /* ===== APP SHELL ===== */
   .app-shell {
     display: flex;
-    min-height: 100vh;
+    height: 100vh;
+    overflow: hidden; /* Kunci total tinggi agar tidak ada scroll di luar */
   }
 
   /* ===== SIDEBAR ===== */
@@ -819,12 +820,13 @@
   /* ===== MAIN CONTENT ===== */
   .main-content {
     flex: 1;
-    padding: 2rem 3rem;
+    padding: 2rem 3rem 2rem 3rem;
     display: flex;
     flex-direction: column;
     gap: 2rem;
-    max-height: 100vh;
-    overflow-y: auto;
+    height: 100vh;
+    overflow: hidden; /* Tidak ada scroll di luar tabel */
+    min-width: 0;
   }
 
   /* ===== TOPBAR ===== */
@@ -1035,8 +1037,12 @@
     background: rgba(30, 41, 59, 0.5);
     border: 1px solid rgba(255, 255, 255, 0.05);
     border-radius: 1rem;
-    overflow: hidden;
     backdrop-filter: blur(10px);
+    flex: 1; /* Isi sisa tinggi dari .main-content */
+    min-height: 0; /* Wajib agar flex child bisa menyusut */
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
   }
 
   .empty-state {
@@ -1079,8 +1085,37 @@
     }
   }
 
+  /* Tabel wrapper mengisi sisa ruang dari .table-card dan scroll secara internal */
   .table-wrapper {
     overflow-x: auto;
+    overflow-y: auto;
+    flex: 1; /* Isi tinggi tersisa di dalam .table-card */
+    min-height: 0; /* Wajib agar scroll internal bekerja */
+  }
+
+  .table-wrapper::-webkit-scrollbar {
+    width: 6px;
+  }
+
+  .table-wrapper::-webkit-scrollbar-track {
+    background: transparent;
+  }
+
+  /* Default: transparan */
+  .table-wrapper::-webkit-scrollbar-thumb {
+    background: transparent;
+    border-radius: 999px;
+    transition: background 0.3s ease;
+  }
+
+  /* Muncul saat wrapper di-hover */
+  .table-wrapper:hover::-webkit-scrollbar-thumb {
+    background: #475569;
+  }
+
+  /* Lebih terang saat thumb-nya sendiri di-hover */
+  .table-wrapper:hover::-webkit-scrollbar-thumb:hover {
+    background: #64748b;
   }
 
   .data-table {
@@ -1106,7 +1141,7 @@
   }
 
   .th-aksi {
-    width: 150px; /* Diperlebar agar muat dua tombol */
+    width: 150px;
     text-align: center;
   }
 
@@ -1389,7 +1424,6 @@
 
   /* ===== PRINT STYLES ===== */
   @media print {
-    /* 1. Paksa background jadi putih bersih dan hapus margin default */
     :global(body) {
       background: white !important;
       color: black !important;
@@ -1397,24 +1431,20 @@
       padding: 0 !important;
     }
 
-    /* 2. HILANGKAN TOTAL elemen UI web agar tidak memakan spasi kosong */
     .app-shell,
     .modal-backdrop {
       display: none !important;
     }
 
-    /* 3. Tampilkan KHUSUS elemen cetak (Header dan Tabel PDF) */
     .print\:block {
       display: block !important;
     }
 
-    /* 4. Atur format kertas otomatis ke A4 tanpa header/footer bawaan browser */
     @page {
       size: A4 portrait;
-      margin: 1.5cm; /* Memberikan margin putih yang rapi di sekeliling tabel */
+      margin: 1.5cm;
     }
 
-    /* 5. Desain Tabel PDF */
     .print-header {
       text-align: center;
       padding-bottom: 1rem;
@@ -1442,16 +1472,16 @@
 
     .print-table th,
     .print-table td {
-      border: 1px solid #000 !important; /* Paksa border hitam untuk PDF */
+      border: 1px solid #000 !important;
       padding: 0.6rem 0.8rem;
       text-align: left;
       font-size: 0.85rem;
     }
 
     .print-table th {
-      background-color: #f1f5f9 !important; /* Warna abu-abu muda untuk header tabel */
+      background-color: #f1f5f9 !important;
       font-weight: bold;
-      -webkit-print-color-adjust: exact; /* Paksa browser mencetak warna background header */
+      -webkit-print-color-adjust: exact;
       print-color-adjust: exact;
     }
   }
