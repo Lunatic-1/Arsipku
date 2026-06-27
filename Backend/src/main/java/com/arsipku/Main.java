@@ -13,7 +13,8 @@ public class Main {
     // Helper: ambil nilai query parameter dari URL (misal: ?sort=desc)
     private static String getQueryParam(com.sun.net.httpserver.HttpExchange exchange, String paramName) {
         String query = exchange.getRequestURI().getQuery(); // "sort=desc"
-        if (query == null) return null;
+        if (query == null)
+            return null;
         for (String part : query.split("&")) {
             String[] kv = part.split("=", 2);
             if (kv.length == 2 && kv[0].equalsIgnoreCase(paramName)) {
@@ -22,6 +23,7 @@ public class Main {
         }
         return null;
     }
+
     public static void main(String[] args) throws Exception {
         System.out.println("Mencoba menyalakan mesin...");
 
@@ -54,7 +56,8 @@ public class Main {
             os.close();
         }));
 
-        // 2. Endpoint Tambah Data Surat Masuk (POST) - harus didaftarkan SEBELUM /api/surat-masuk
+        // 2. Endpoint Tambah Data Surat Masuk (POST) - harus didaftarkan SEBELUM
+        // /api/surat-masuk
         server.createContext("/api/surat-masuk/tambah", (exchange -> {
             exchange.getResponseHeaders().add("Access-Control-Allow-Origin", "*");
             exchange.getResponseHeaders().add("Access-Control-Allow-Methods", "POST, OPTIONS");
@@ -76,7 +79,8 @@ public class Main {
             }
         }));
 
-        // 3. Endpoint Hapus Data Surat Masuk (POST) - harus didaftarkan SEBELUM /api/surat-masuk
+        // 3. Endpoint Hapus Data Surat Masuk (POST) - harus didaftarkan SEBELUM
+        // /api/surat-masuk
         server.createContext("/api/surat-masuk/hapus", (exchange -> {
             exchange.getResponseHeaders().add("Access-Control-Allow-Origin", "*");
             exchange.getResponseHeaders().add("Access-Control-Allow-Methods", "POST, OPTIONS");
@@ -99,15 +103,56 @@ public class Main {
                 exchange.sendResponseHeaders(405, -1);
             }
         }));
+        // Endpoint Update Surat Masuk (POST)
+        server.createContext("/api/surat-masuk/update", (exchange -> {
+            exchange.getResponseHeaders().add("Access-Control-Allow-Origin", "*");
+            exchange.getResponseHeaders().add("Access-Control-Allow-Methods", "POST, OPTIONS");
+            exchange.getResponseHeaders().add("Access-Control-Allow-Headers", "Content-Type");
 
-        // 4. Endpoint Ambil Data Surat Masuk (GET) - didaftarkan TERAKHIR agar tidak menangkap sub-path
+            if ("OPTIONS".equalsIgnoreCase(exchange.getRequestMethod())) {
+                exchange.sendResponseHeaders(204, -1);
+            } else if ("POST".equalsIgnoreCase(exchange.getRequestMethod())) {
+                java.io.InputStream is = exchange.getRequestBody();
+                String body = new String(is.readAllBytes());
+                String jsonResponse = SuratMasukController.update(body);
+                exchange.getResponseHeaders().add("Content-Type", "application/json");
+                exchange.sendResponseHeaders(200, jsonResponse.getBytes().length);
+                OutputStream os = exchange.getResponseBody();
+                os.write(jsonResponse.getBytes());
+                os.close();
+            }
+        }));
+
+        // Endpoint Update Surat Keluar (POST)
+        server.createContext("/api/surat-keluar/update", (exchange -> {
+            exchange.getResponseHeaders().add("Access-Control-Allow-Origin", "*");
+            exchange.getResponseHeaders().add("Access-Control-Allow-Methods", "POST, OPTIONS");
+            exchange.getResponseHeaders().add("Access-Control-Allow-Headers", "Content-Type");
+
+            if ("OPTIONS".equalsIgnoreCase(exchange.getRequestMethod())) {
+                exchange.sendResponseHeaders(204, -1);
+            } else if ("POST".equalsIgnoreCase(exchange.getRequestMethod())) {
+                java.io.InputStream is = exchange.getRequestBody();
+                String body = new String(is.readAllBytes());
+                String jsonResponse = SuratKeluarController.update(body);
+                exchange.getResponseHeaders().add("Content-Type", "application/json");
+                exchange.sendResponseHeaders(200, jsonResponse.getBytes().length);
+                OutputStream os = exchange.getResponseBody();
+                os.write(jsonResponse.getBytes());
+                os.close();
+            }
+        }));
+
+        // 4. Endpoint Ambil Data Surat Masuk (GET) - didaftarkan TERAKHIR agar tidak
+        // menangkap sub-path
         server.createContext("/api/surat-masuk", (exchange -> {
             exchange.getResponseHeaders().add("Content-Type", "application/json");
             exchange.getResponseHeaders().add("Access-Control-Allow-Origin", "*");
 
             // Baca parameter ?sort=asc atau ?sort=desc (default: desc = terbaru dulu)
             String sortOrder = getQueryParam(exchange, "sort");
-            if (sortOrder == null) sortOrder = "DESC";
+            if (sortOrder == null)
+                sortOrder = "DESC";
 
             String jsonResponse = SuratMasukController.getAll(sortOrder);
 
@@ -117,7 +162,8 @@ public class Main {
             os.close();
         }));
 
-        // 5. Endpoint Tambah Data Surat Keluar (POST) - harus didaftarkan SEBELUM /api/surat-keluar
+        // 5. Endpoint Tambah Data Surat Keluar (POST) - harus didaftarkan SEBELUM
+        // /api/surat-keluar
         server.createContext("/api/surat-keluar/tambah", (exchange -> {
             exchange.getResponseHeaders().add("Access-Control-Allow-Origin", "*");
             exchange.getResponseHeaders().add("Access-Control-Allow-Methods", "POST, OPTIONS");
@@ -139,7 +185,8 @@ public class Main {
             }
         }));
 
-        // 6. Endpoint Hapus Data Surat Keluar (POST) - harus didaftarkan SEBELUM /api/surat-keluar
+        // 6. Endpoint Hapus Data Surat Keluar (POST) - harus didaftarkan SEBELUM
+        // /api/surat-keluar
         server.createContext("/api/surat-keluar/hapus", (exchange -> {
             exchange.getResponseHeaders().add("Access-Control-Allow-Origin", "*");
             exchange.getResponseHeaders().add("Access-Control-Allow-Methods", "POST, OPTIONS");
@@ -163,14 +210,16 @@ public class Main {
             }
         }));
 
-        // 7. Endpoint Ambil Data Surat Keluar (GET) - didaftarkan TERAKHIR agar tidak menangkap sub-path
+        // 7. Endpoint Ambil Data Surat Keluar (GET) - didaftarkan TERAKHIR agar tidak
+        // menangkap sub-path
         server.createContext("/api/surat-keluar", (exchange -> {
             exchange.getResponseHeaders().add("Content-Type", "application/json");
             exchange.getResponseHeaders().add("Access-Control-Allow-Origin", "*");
 
             // Baca parameter ?sort=asc atau ?sort=desc (default: desc = terbaru dulu)
             String sortOrder = getQueryParam(exchange, "sort");
-            if (sortOrder == null) sortOrder = "DESC";
+            if (sortOrder == null)
+                sortOrder = "DESC";
 
             String jsonResponse = SuratKeluarController.getAll(sortOrder);
 

@@ -98,4 +98,41 @@ public class SuratKeluarController {
         }
         return gson.toJson(response);
     }
+
+    public static String update(String jsonBody) {
+        com.google.gson.Gson gson = new com.google.gson.Gson();
+        com.google.gson.JsonObject json = gson.fromJson(jsonBody, com.google.gson.JsonObject.class);
+
+        String nomorSurat = json.get("nomorSurat").getAsString();
+        String tanggalSurat = json.get("tanggalSurat").getAsString();
+        String tujuan = json.get("tujuan").getAsString();
+        String perihal = json.get("perihal").getAsString();
+        String keterangan = json.has("keterangan") ? json.get("keterangan").getAsString() : "";
+
+        com.google.gson.JsonObject response = new com.google.gson.JsonObject();
+        try {
+            java.sql.Connection conn = com.arsipku.config.Database.getConnection();
+            String sql = "UPDATE surat_keluar SET tanggal_surat = ?, tujuan = ?, perihal = ?, keterangan = ? WHERE nomor_surat = ?";
+            java.sql.PreparedStatement pstmt = conn.prepareStatement(sql);
+
+            pstmt.setString(1, tanggalSurat);
+            pstmt.setString(2, tujuan);
+            pstmt.setString(3, perihal);
+            pstmt.setString(4, keterangan);
+            pstmt.setString(5, nomorSurat);
+
+            int rowsAffected = pstmt.executeUpdate();
+            if (rowsAffected > 0) {
+                response.addProperty("status", "sukses");
+                response.addProperty("pesan", "Data surat keluar berhasil diperbarui!");
+            } else {
+                response.addProperty("status", "gagal");
+                response.addProperty("pesan", "Data tidak ditemukan!");
+            }
+        } catch (Exception e) {
+            response.addProperty("status", "error");
+            response.addProperty("pesan", "Gagal update database: " + e.getMessage());
+        }
+        return gson.toJson(response);
+    }
 }

@@ -102,4 +102,44 @@ public class SuratMasukController {
         }
         return gson.toJson(response);
     }
+
+    public static String update(String jsonBody) {
+        com.google.gson.Gson gson = new com.google.gson.Gson();
+        com.google.gson.JsonObject json = gson.fromJson(jsonBody, com.google.gson.JsonObject.class);
+
+        String nomorSurat = json.get("nomorSurat").getAsString();
+        String tanggalSurat = json.get("tanggalSurat").getAsString();
+        String tanggalDiterima = json.get("tanggalDiterima").getAsString();
+        String pengirim = json.get("pengirim").getAsString();
+        String perihal = json.get("perihal").getAsString();
+        String keterangan = json.has("keterangan") ? json.get("keterangan").getAsString() : "";
+
+        com.google.gson.JsonObject response = new com.google.gson.JsonObject();
+        try {
+            java.sql.Connection conn = com.arsipku.config.Database.getConnection();
+            // Update semua data KECUALI nomor_surat karena itu adalah Primary Key
+            String sql = "UPDATE surat_masuk SET tanggal_surat = ?, tanggal_diterima = ?, pengirim = ?, perihal = ?, keterangan = ? WHERE nomor_surat = ?";
+            java.sql.PreparedStatement pstmt = conn.prepareStatement(sql);
+
+            pstmt.setString(1, tanggalSurat);
+            pstmt.setString(2, tanggalDiterima);
+            pstmt.setString(3, pengirim);
+            pstmt.setString(4, perihal);
+            pstmt.setString(5, keterangan);
+            pstmt.setString(6, nomorSurat);
+
+            int rowsAffected = pstmt.executeUpdate();
+            if (rowsAffected > 0) {
+                response.addProperty("status", "sukses");
+                response.addProperty("pesan", "Data surat masuk berhasil diperbarui!");
+            } else {
+                response.addProperty("status", "gagal");
+                response.addProperty("pesan", "Data tidak ditemukan!");
+            }
+        } catch (Exception e) {
+            response.addProperty("status", "error");
+            response.addProperty("pesan", "Gagal update database: " + e.getMessage());
+        }
+        return gson.toJson(response);
+    }
 }

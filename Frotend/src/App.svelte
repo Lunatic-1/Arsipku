@@ -11,9 +11,11 @@
   let showModal = false;
   let isLoading = false;
 
+  // Penanda mode edit
+  let isEditMode = false;
+
   // Variabel untuk fitur pencarian
   let searchQuery = "";
-
   // Variabel untuk sorting
   let sortOrder = "DESC";
 
@@ -83,12 +85,22 @@
       surat.perihal.toLowerCase().includes(searchQuery.toLowerCase()),
   );
 
-  // Simpan Data Baru
+  // Simpan Data Baru / Update Data
   async function handleSubmit() {
     const isMasuk = activeTab === "masuk";
-    const url = isMasuk
-      ? "http://localhost:8000/api/surat-masuk/tambah"
-      : "http://localhost:8000/api/surat-keluar/tambah";
+
+    // Tentukan URL berdasarkan isEditMode
+    let url = "";
+    if (isMasuk) {
+      url = isEditMode
+        ? "http://localhost:8000/api/surat-masuk/update"
+        : "http://localhost:8000/api/surat-masuk/tambah";
+    } else {
+      url = isEditMode
+        ? "http://localhost:8000/api/surat-keluar/update"
+        : "http://localhost:8000/api/surat-keluar/tambah";
+    }
+
     const dataYangDikirim = isMasuk ? formDataMasuk : formDataKeluar;
 
     try {
@@ -102,6 +114,7 @@
       if (result.status === "sukses") {
         alert(result.pesan);
         showModal = false;
+        isEditMode = false; // Reset mode
         if (isMasuk) {
           formDataMasuk = {
             nomorSurat: "",
@@ -127,6 +140,17 @@
       }
     } catch (error) {
       alert("Gagal terhubung ke server Java!");
+    }
+  }
+
+  // Fungsi Pemicu Edit Data
+  function handleEdit(surat) {
+    isEditMode = true;
+    showModal = true;
+    if (activeTab === "masuk") {
+      formDataMasuk = { ...surat };
+    } else {
+      formDataKeluar = { ...surat };
     }
   }
 
@@ -168,20 +192,20 @@
   }
 </script>
 
-<!-- ===== PRINT HEADER (hidden on screen) ===== -->
 <div class="hidden print:block print-header">
   <h1>LAPORAN ARSIP SURAT {activeTab === "masuk" ? "MASUK" : "KELUAR"}</h1>
   <p>
-    Dicetak oleh Sistem Arsipku &mdash; {new Date().toLocaleDateString(
-      "id-ID",
-      { weekday: "long", year: "numeric", month: "long", day: "numeric" },
-    )}
+    Dicetak oleh Sistem Arsipku &mdash;
+    {new Date().toLocaleDateString("id-ID", {
+      weekday: "long",
+      year: "numeric",
+      month: "long",
+      day: "numeric",
+    })}
   </p>
 </div>
 
-<!-- ===== MAIN APP ===== -->
 <div class="app-shell print:hidden">
-  <!-- SIDEBAR -->
   <aside class="sidebar">
     <div class="sidebar-brand">
       <div class="brand-icon">📂</div>
@@ -226,9 +250,7 @@
     </div>
   </aside>
 
-  <!-- MAIN CONTENT -->
   <main class="main-content">
-    <!-- TOP BAR -->
     <header class="topbar">
       <div class="topbar-left">
         <h2 class="page-title">
@@ -240,12 +262,32 @@
             : filteredSuratKeluar.length} data ditemukan
         </p>
       </div>
-      <button class="btn-tambah" on:click={() => (showModal = true)}>
+      <button
+        class="btn-tambah"
+        on:click={() => {
+          isEditMode = false;
+          formDataMasuk = {
+            nomorSurat: "",
+            tanggalSurat: "",
+            tanggalDiterima: "",
+            pengirim: "",
+            perihal: "",
+            keterangan: "",
+          };
+          formDataKeluar = {
+            nomorSurat: "",
+            tanggalSurat: "",
+            tujuan: "",
+            perihal: "",
+            keterangan: "",
+          };
+          showModal = true;
+        }}
+      >
         <span>＋</span> Tambah Surat
       </button>
     </header>
 
-    <!-- STAT CARDS -->
     <div class="stat-grid">
       <div class="stat-card stat-masuk">
         <div class="stat-icon">📥</div>
@@ -272,7 +314,6 @@
       </div>
     </div>
 
-    <!-- TOOLBAR -->
     <div class="toolbar">
       <div class="search-wrapper">
         <span class="search-icon">🔍</span>
@@ -301,7 +342,6 @@
       </div>
     </div>
 
-    <!-- TABLE AREA -->
     <div class="table-card">
       {#if isLoading}
         <div class="empty-state">
@@ -341,12 +381,20 @@
                     <td class="td-name">{surat.pengirim}</td>
                     <td class="td-perihal">{surat.perihal}</td>
                     <td class="td-aksi">
-                      <button
-                        class="btn-hapus"
-                        on:click={() => handleHapus(surat.nomorSurat)}
-                      >
-                        🗑 Hapus
-                      </button>
+                      <div class="aksi-flex">
+                        <button
+                          class="btn-edit"
+                          on:click={() => handleEdit(surat)}
+                        >
+                          ✏️ Edit
+                        </button>
+                        <button
+                          class="btn-hapus"
+                          on:click={() => handleHapus(surat.nomorSurat)}
+                        >
+                          🗑 Hapus
+                        </button>
+                      </div>
                     </td>
                   </tr>
                 {/each}
@@ -386,12 +434,20 @@
                   <td class="td-name">{surat.tujuan}</td>
                   <td class="td-perihal">{surat.perihal}</td>
                   <td class="td-aksi">
-                    <button
-                      class="btn-hapus"
-                      on:click={() => handleHapus(surat.nomorSurat)}
-                    >
-                      🗑 Hapus
-                    </button>
+                    <div class="aksi-flex">
+                      <button
+                        class="btn-edit"
+                        on:click={() => handleEdit(surat)}
+                      >
+                        ✏️ Edit
+                      </button>
+                      <button
+                        class="btn-hapus"
+                        on:click={() => handleHapus(surat.nomorSurat)}
+                      >
+                        🗑 Hapus
+                      </button>
+                    </div>
                   </td>
                 </tr>
               {/each}
@@ -403,7 +459,6 @@
   </main>
 </div>
 
-<!-- ===== PRINT TABLE ===== -->
 <div class="hidden print:block">
   <table class="print-table">
     <thead>
@@ -429,13 +484,9 @@
   </table>
 </div>
 
-<!-- ===== MODAL ===== -->
 {#if showModal}
-  <!-- svelte-ignore a11y-click-events-have-key-events -->
-  <!-- svelte-ignore a11y-no-static-element-interactions -->
   <div class="modal-backdrop" on:click|self={() => (showModal = false)}>
     <div class="modal-box">
-      <!-- Modal Header -->
       <div
         class="modal-header {activeTab === 'masuk'
           ? 'modal-header-masuk'
@@ -444,8 +495,12 @@
         <div>
           <h2 class="modal-title">
             {activeTab === "masuk"
-              ? "📥 Tambah Surat Masuk"
-              : "📤 Tambah Surat Keluar"}
+              ? isEditMode
+                ? "📥 Ubah Surat Masuk"
+                : "📥 Tambah Surat Masuk"
+              : isEditMode
+                ? "📤 Ubah Surat Keluar"
+                : "📤 Tambah Surat Keluar"}
           </h2>
           <p class="modal-sub">Isi form di bawah dengan data yang benar</p>
         </div>
@@ -454,7 +509,6 @@
         >
       </div>
 
-      <!-- Modal Body -->
       <form on:submit|preventDefault={handleSubmit} class="modal-form">
         {#if activeTab === "masuk"}
           <div class="form-group">
@@ -465,7 +519,8 @@
               type="text"
               bind:value={formDataMasuk.nomorSurat}
               required
-              class="form-input"
+              disabled={isEditMode}
+              class="form-input {isEditMode ? 'disabled-input' : ''}"
               placeholder="Contoh: 001/SM/VI/2025"
             />
           </div>
@@ -535,7 +590,8 @@
               type="text"
               bind:value={formDataKeluar.nomorSurat}
               required
-              class="form-input"
+              disabled={isEditMode}
+              class="form-input {isEditMode ? 'disabled-input' : ''}"
               placeholder="Contoh: 001/SK/VI/2025"
             />
           </div>
@@ -589,15 +645,17 @@
           <button
             type="button"
             class="btn-batal"
-            on:click={() => (showModal = false)}>Batal</button
+            on:click={() => (showModal = false)}
           >
+            Batal
+          </button>
           <button
             type="submit"
             class="btn-simpan {activeTab === 'masuk'
               ? 'btn-simpan-masuk'
               : 'btn-simpan-keluar'}"
           >
-            ✓ Simpan Data
+            {isEditMode ? "Simpan Perubahan" : "Simpan Data"}
           </button>
         </div>
       </form>
@@ -606,21 +664,42 @@
 {/if}
 
 <style>
-  /* ===== GOOGLE FONT ===== */
-  @import url("https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap");
-
-  :global(*, *::before, *::after) {
-    box-sizing: border-box;
-    margin: 0;
-    padding: 0;
+  /* Menambahkan styles baru untuk fitur edit */
+  .btn-edit {
+    background: rgba(59, 130, 246, 0.15);
+    color: #93c5fd;
+    border: 1px solid rgba(59, 130, 246, 0.3);
+    padding: 0.4rem 0.7rem;
+    border-radius: 0.5rem;
+    cursor: pointer;
+    font-size: 0.8rem;
+    font-weight: 600;
+    transition: all 0.2s;
   }
+  .btn-edit:hover {
+    background: rgba(59, 130, 246, 0.25);
+    color: #bfdbfe;
+  }
+  .aksi-flex {
+    display: flex;
+    gap: 0.5rem;
+    justify-content: flex-end;
+  }
+  .disabled-input {
+    background: rgba(0, 0, 0, 0.2) !important;
+    opacity: 0.6;
+    cursor: not-allowed;
+  }
+
+  /* ===== BASE STYLES ===== */
   :global(body) {
+    margin: 0;
     font-family: "Inter", sans-serif;
-    background: #0f1117;
-    color: #e2e8f0;
+    background-color: #0f172a;
+    color: #f1f5f9;
   }
 
-  /* ===== LAYOUT ===== */
+  /* ===== APP SHELL ===== */
   .app-shell {
     display: flex;
     min-height: 100vh;
@@ -629,40 +708,35 @@
   /* ===== SIDEBAR ===== */
   .sidebar {
     width: 260px;
-    min-height: 100vh;
-    background: linear-gradient(180deg, #1e1b4b 0%, #1a1a2e 60%, #0f0f1a 100%);
+    background: linear-gradient(180deg, #1e293b 0%, #0f172a 100%);
+    border-right: 1px solid rgba(255, 255, 255, 0.05);
     display: flex;
     flex-direction: column;
-    padding: 1.5rem 1rem;
-    border-right: 1px solid rgba(99, 102, 241, 0.2);
-    flex-shrink: 0;
+    padding: 1.5rem;
   }
 
   .sidebar-brand {
     display: flex;
     align-items: center;
-    gap: 0.75rem;
-    padding: 0.75rem 0.5rem 1.5rem;
-    border-bottom: 1px solid rgba(255, 255, 255, 0.08);
-    margin-bottom: 1.5rem;
+    gap: 1rem;
+    margin-bottom: 2.5rem;
   }
 
   .brand-icon {
     font-size: 2rem;
-    filter: drop-shadow(0 0 8px rgba(99, 102, 241, 0.6));
   }
 
   .brand-title {
-    font-size: 1.4rem;
+    font-size: 1.25rem;
     font-weight: 800;
-    background: linear-gradient(135deg, #a5b4fc, #818cf8);
+    background: linear-gradient(to right, #818cf8, #c084fc);
     -webkit-background-clip: text;
     -webkit-text-fill-color: transparent;
-    background-clip: text;
-    line-height: 1.2;
+    margin: 0;
   }
 
   .brand-sub {
+    margin: 0;
     font-size: 0.7rem;
     color: #64748b;
     letter-spacing: 0.05em;
@@ -725,104 +799,99 @@
   }
 
   .badge-blue {
-    background: rgba(99, 102, 241, 0.25);
+    background: rgba(99, 102, 241, 0.2);
     color: #a5b4fc;
   }
+
   .badge-emerald {
     background: rgba(16, 185, 129, 0.2);
     color: #6ee7b7;
   }
 
   .sidebar-footer {
-    padding-top: 1rem;
-    border-top: 1px solid rgba(255, 255, 255, 0.06);
-    font-size: 0.7rem;
-    color: #334155;
+    padding-top: 1.5rem;
+    border-top: 1px solid rgba(255, 255, 255, 0.05);
+    font-size: 0.75rem;
+    color: #475569;
     text-align: center;
   }
 
   /* ===== MAIN CONTENT ===== */
   .main-content {
     flex: 1;
-    background: #0f1117;
-    padding: 2rem;
-    overflow-y: auto;
+    padding: 2rem 3rem;
     display: flex;
     flex-direction: column;
-    gap: 1.5rem;
+    gap: 2rem;
+    max-height: 100vh;
+    overflow-y: auto;
   }
 
   /* ===== TOPBAR ===== */
   .topbar {
     display: flex;
     justify-content: space-between;
-    align-items: center;
+    align-items: flex-end;
   }
 
   .page-title {
-    font-size: 1.6rem;
+    font-size: 1.75rem;
     font-weight: 700;
-    color: #f1f5f9;
+    margin: 0 0 0.25rem 0;
+    color: #f8fafc;
   }
 
   .page-sub {
-    font-size: 0.8rem;
-    color: #475569;
-    margin-top: 0.2rem;
+    margin: 0;
+    color: #94a3b8;
+    font-size: 0.9rem;
   }
 
   .btn-tambah {
+    background: linear-gradient(135deg, #4f46e5, #7c3aed);
+    color: white;
+    border: none;
+    padding: 0.75rem 1.25rem;
+    border-radius: 0.75rem;
+    font-weight: 600;
+    font-size: 0.9rem;
+    cursor: pointer;
+    transition: all 0.2s;
+    box-shadow: 0 4px 15px rgba(79, 70, 229, 0.3);
     display: flex;
     align-items: center;
     gap: 0.5rem;
-    padding: 0.65rem 1.4rem;
-    background: linear-gradient(135deg, #6366f1, #8b5cf6);
-    color: white;
-    border: none;
-    border-radius: 0.75rem;
-    font-size: 0.9rem;
-    font-weight: 600;
-    cursor: pointer;
-    transition: all 0.2s ease;
-    box-shadow: 0 4px 15px rgba(99, 102, 241, 0.35);
   }
 
   .btn-tambah:hover {
-    transform: translateY(-1px);
-    box-shadow: 0 6px 20px rgba(99, 102, 241, 0.5);
-  }
-
-  .btn-tambah:active {
-    transform: translateY(0);
+    transform: translateY(-2px);
+    box-shadow: 0 6px 20px rgba(79, 70, 229, 0.4);
   }
 
   /* ===== STAT CARDS ===== */
   .stat-grid {
     display: grid;
     grid-template-columns: repeat(3, 1fr);
-    gap: 1rem;
+    gap: 1.5rem;
   }
 
   .stat-card {
+    background: rgba(30, 41, 59, 0.7);
+    backdrop-filter: blur(10px);
+    border: 1px solid rgba(255, 255, 255, 0.05);
+    padding: 1.5rem;
+    border-radius: 1rem;
     display: flex;
     align-items: center;
-    gap: 1rem;
-    padding: 1.25rem 1.5rem;
-    border-radius: 1rem;
-    border: 1px solid rgba(255, 255, 255, 0.06);
-    backdrop-filter: blur(10px);
-    transition: transform 0.2s;
-  }
-
-  .stat-card:hover {
-    transform: translateY(-2px);
+    gap: 1.25rem;
+    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
   }
 
   .stat-masuk {
     background: linear-gradient(
       135deg,
       rgba(99, 102, 241, 0.15),
-      rgba(139, 92, 246, 0.1)
+      rgba(79, 70, 229, 0.1)
     );
     border-color: rgba(99, 102, 241, 0.25);
   }
@@ -897,30 +966,24 @@
     font-size: 0.875rem;
     font-family: "Inter", sans-serif;
     outline: none;
-    transition:
-      border-color 0.2s,
-      box-shadow 0.2s;
-  }
-
-  .search-input::placeholder {
-    color: #475569;
+    transition: border-color 0.2s;
   }
 
   .search-input:focus {
-    border-color: rgba(99, 102, 241, 0.5);
-    box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.1);
+    border-color: #6366f1;
+    background: rgba(255, 255, 255, 0.08);
   }
 
   .search-clear {
     position: absolute;
-    right: 0.75rem;
+    right: 0.8rem;
     top: 50%;
     transform: translateY(-50%);
-    background: none;
+    background: transparent;
     border: none;
-    color: #64748b;
+    color: #94a3b8;
     cursor: pointer;
-    font-size: 0.8rem;
+    font-size: 0.9rem;
   }
 
   .toolbar-actions {
@@ -929,54 +992,91 @@
   }
 
   .btn-sort {
-    padding: 0.65rem 1.2rem;
+    background: rgba(255, 255, 255, 0.05);
+    color: #cbd5e1;
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    padding: 0.65rem 1rem;
     border-radius: 0.75rem;
-    border: 1px solid rgba(99, 102, 241, 0.35);
-    background: rgba(99, 102, 241, 0.1);
-    color: #a5b4fc;
-    font-size: 0.85rem;
-    font-weight: 600;
     cursor: pointer;
+    font-size: 0.85rem;
+    font-weight: 500;
     transition: all 0.2s;
-    font-family: "Inter", sans-serif;
   }
 
   .btn-sort:hover {
-    background: rgba(99, 102, 241, 0.2);
-    border-color: rgba(99, 102, 241, 0.6);
+    background: rgba(255, 255, 255, 0.1);
   }
 
   .btn-sort-asc {
-    background: rgba(245, 158, 11, 0.1);
-    border-color: rgba(245, 158, 11, 0.35);
-    color: #fcd34d;
+    background: rgba(99, 102, 241, 0.1);
+    color: #a5b4fc;
+    border-color: rgba(99, 102, 241, 0.3);
   }
 
   .btn-print {
-    padding: 0.65rem 1.2rem;
-    border-radius: 0.75rem;
+    background: rgba(30, 41, 59, 0.8);
+    color: #e2e8f0;
     border: 1px solid rgba(255, 255, 255, 0.1);
-    background: rgba(255, 255, 255, 0.05);
-    color: #94a3b8;
-    font-size: 0.85rem;
-    font-weight: 600;
+    padding: 0.65rem 1rem;
+    border-radius: 0.75rem;
     cursor: pointer;
+    font-size: 0.85rem;
+    font-weight: 500;
     transition: all 0.2s;
-    font-family: "Inter", sans-serif;
   }
 
   .btn-print:hover {
-    background: rgba(255, 255, 255, 0.1);
-    color: #e2e8f0;
+    background: #334155;
+    border-color: rgba(255, 255, 255, 0.2);
   }
 
-  /* ===== TABLE CARD ===== */
+  /* ===== TABLE AREA ===== */
   .table-card {
-    background: rgba(255, 255, 255, 0.03);
-    border: 1px solid rgba(255, 255, 255, 0.07);
+    background: rgba(30, 41, 59, 0.5);
+    border: 1px solid rgba(255, 255, 255, 0.05);
     border-radius: 1rem;
     overflow: hidden;
-    flex: 1;
+    backdrop-filter: blur(10px);
+  }
+
+  .empty-state {
+    padding: 4rem 2rem;
+    text-align: center;
+  }
+
+  .empty-icon {
+    font-size: 3rem;
+    margin-bottom: 1rem;
+    opacity: 0.5;
+  }
+
+  .empty-title {
+    font-size: 1.1rem;
+    font-weight: 600;
+    color: #cbd5e1;
+    margin: 0 0 0.5rem 0;
+  }
+
+  .empty-sub {
+    font-size: 0.9rem;
+    color: #64748b;
+    margin: 0;
+  }
+
+  .loader {
+    width: 40px;
+    height: 40px;
+    border: 3px solid rgba(255, 255, 255, 0.1);
+    border-radius: 50%;
+    border-top-color: #6366f1;
+    animation: spin 1s ease-in-out infinite;
+    margin: 0 auto 1rem auto;
+  }
+
+  @keyframes spin {
+    to {
+      transform: rotate(360deg);
+    }
   }
 
   .table-wrapper {
@@ -986,15 +1086,11 @@
   .data-table {
     width: 100%;
     border-collapse: collapse;
-    font-size: 0.875rem;
-  }
-
-  .data-table thead tr {
-    background: rgba(255, 255, 255, 0.05);
-    border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+    text-align: left;
   }
 
   .data-table th {
+    background: rgba(15, 23, 42, 0.6);
     padding: 1rem 1.25rem;
     font-weight: 600;
     font-size: 0.75rem;
@@ -1008,8 +1104,9 @@
     width: 50px;
     text-align: center;
   }
+
   .th-aksi {
-    width: 100px;
+    width: 150px; /* Diperlebar agar muat dua tombol */
     text-align: center;
   }
 
@@ -1021,6 +1118,7 @@
   .table-row:hover {
     background: rgba(255, 255, 255, 0.04);
   }
+
   .table-row:last-child {
     border-bottom: none;
   }
@@ -1036,19 +1134,23 @@
     font-size: 0.8rem;
     text-align: center;
   }
+
   .td-date {
     color: #94a3b8;
     font-size: 0.82rem;
     white-space: nowrap;
   }
+
   .td-name {
     font-weight: 500;
     color: #e2e8f0;
   }
+
   .td-perihal {
     color: #94a3b8;
     max-width: 260px;
   }
+
   .td-aksi {
     text-align: center;
   }
@@ -1067,103 +1169,55 @@
     color: #a5b4fc;
     border: 1px solid rgba(99, 102, 241, 0.25);
   }
+
   .badge-emerald-soft {
     background: rgba(16, 185, 129, 0.12);
     color: #6ee7b7;
-    border: 1px solid rgba(16, 185, 129, 0.2);
+    border: 1px solid rgba(16, 185, 129, 0.25);
   }
 
   .btn-hapus {
-    padding: 0.3rem 0.7rem;
-    background: rgba(239, 68, 68, 0.1);
-    border: 1px solid rgba(239, 68, 68, 0.25);
+    background: rgba(239, 68, 68, 0.15);
     color: #fca5a5;
+    border: 1px solid rgba(239, 68, 68, 0.3);
+    padding: 0.4rem 0.7rem;
     border-radius: 0.5rem;
-    font-size: 0.78rem;
-    font-weight: 600;
     cursor: pointer;
+    font-size: 0.8rem;
+    font-weight: 600;
     transition: all 0.2s;
-    font-family: "Inter", sans-serif;
   }
 
   .btn-hapus:hover {
     background: rgba(239, 68, 68, 0.25);
-    color: #ef4444;
-    border-color: rgba(239, 68, 68, 0.5);
-  }
-
-  /* ===== EMPTY STATE ===== */
-  .empty-state {
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    justify-content: center;
-    padding: 4rem 2rem;
-    gap: 0.75rem;
-  }
-
-  .empty-icon {
-    font-size: 3.5rem;
-    opacity: 0.4;
-  }
-  .empty-title {
-    font-size: 1rem;
-    font-weight: 600;
-    color: #475569;
-  }
-  .empty-sub {
-    font-size: 0.83rem;
-    color: #334155;
-  }
-
-  /* ===== LOADER ===== */
-  .loader {
-    width: 36px;
-    height: 36px;
-    border: 3px solid rgba(99, 102, 241, 0.2);
-    border-top-color: #6366f1;
-    border-radius: 50%;
-    animation: spin 0.8s linear infinite;
-  }
-
-  @keyframes spin {
-    to {
-      transform: rotate(360deg);
-    }
+    color: #fecaca;
   }
 
   /* ===== MODAL ===== */
   .modal-backdrop {
     position: fixed;
-    inset: 0;
-    background: rgba(0, 0, 0, 0.75);
+    top: 0;
+    left: 0;
+    width: 100vw;
+    height: 100vh;
+    background: rgba(15, 23, 42, 0.8);
     backdrop-filter: blur(4px);
     display: flex;
     align-items: center;
     justify-content: center;
-    z-index: 100;
+    z-index: 50;
     padding: 1rem;
-    animation: fadeIn 0.15s ease;
-  }
-
-  @keyframes fadeIn {
-    from {
-      opacity: 0;
-    }
-    to {
-      opacity: 1;
-    }
   }
 
   .modal-box {
-    background: #1a1a2e;
-    border: 1px solid rgba(255, 255, 255, 0.1);
-    border-radius: 1.25rem;
+    background: #1e293b;
     width: 100%;
     max-width: 500px;
+    border-radius: 1.25rem;
+    box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5);
     overflow: hidden;
-    animation: slideUp 0.2s ease;
-    box-shadow: 0 25px 60px rgba(0, 0, 0, 0.6);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    animation: slideUp 0.3s cubic-bezier(0.16, 1, 0.3, 1);
   }
 
   @keyframes slideUp {
@@ -1192,6 +1246,7 @@
     );
     border-bottom: 1px solid rgba(99, 102, 241, 0.25);
   }
+
   .modal-header-keluar {
     background: linear-gradient(
       135deg,
@@ -1205,127 +1260,112 @@
     font-size: 1.15rem;
     font-weight: 700;
     color: #f1f5f9;
+    margin: 0;
   }
+
   .modal-sub {
     font-size: 0.78rem;
-    color: #64748b;
-    margin-top: 0.25rem;
+    color: #94a3b8;
+    margin: 0.2rem 0 0 0;
   }
 
   .modal-close {
-    background: rgba(255, 255, 255, 0.07);
+    background: transparent;
     border: none;
-    color: #64748b;
-    width: 32px;
-    height: 32px;
-    border-radius: 0.5rem;
+    color: #94a3b8;
+    font-size: 1.25rem;
     cursor: pointer;
-    font-size: 0.85rem;
-    transition: all 0.2s;
-    display: flex;
-    align-items: center;
-    justify-content: center;
+    transition: color 0.2s;
   }
 
   .modal-close:hover {
-    background: rgba(239, 68, 68, 0.2);
-    color: #fca5a5;
+    color: #f8fafc;
   }
 
   .modal-form {
     padding: 1.5rem;
     display: flex;
     flex-direction: column;
-    gap: 1rem;
-    max-height: 70vh;
-    overflow-y: auto;
+    gap: 1.25rem;
   }
 
   .form-group {
     display: flex;
     flex-direction: column;
-    gap: 0.4rem;
+    gap: 0.5rem;
   }
+
   .form-row {
     display: grid;
     grid-template-columns: 1fr 1fr;
-    gap: 0.75rem;
+    gap: 1rem;
   }
 
   .form-label {
-    font-size: 0.8rem;
-    font-weight: 600;
-    color: #94a3b8;
-    text-transform: uppercase;
-    letter-spacing: 0.04em;
+    font-size: 0.85rem;
+    font-weight: 500;
+    color: #cbd5e1;
   }
 
   .required {
-    color: #f87171;
+    color: #ef4444;
   }
 
   .form-input {
-    padding: 0.6rem 0.9rem;
-    background: rgba(255, 255, 255, 0.05);
+    background: rgba(15, 23, 42, 0.6);
     border: 1px solid rgba(255, 255, 255, 0.1);
-    border-radius: 0.6rem;
-    color: #e2e8f0;
-    font-size: 0.875rem;
+    color: #f1f5f9;
+    padding: 0.75rem 1rem;
+    border-radius: 0.75rem;
+    font-size: 0.9rem;
     font-family: "Inter", sans-serif;
+    transition: all 0.2s;
     outline: none;
-    transition:
-      border-color 0.2s,
-      box-shadow 0.2s;
-    width: 100%;
-  }
-
-  .form-input::placeholder {
-    color: #334155;
   }
 
   .form-input:focus {
-    border-color: rgba(99, 102, 241, 0.5);
-    box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.1);
+    border-color: #6366f1;
+    background: rgba(15, 23, 42, 0.8);
+    box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.2);
   }
 
   .form-textarea {
     resize: vertical;
-    min-height: 70px;
+    min-height: 80px;
   }
 
   .modal-footer {
     display: flex;
     justify-content: flex-end;
-    gap: 0.75rem;
-    padding-top: 0.5rem;
-    border-top: 1px solid rgba(255, 255, 255, 0.07);
+    gap: 1rem;
     margin-top: 0.5rem;
+    padding-top: 1.5rem;
+    border-top: 1px solid rgba(255, 255, 255, 0.05);
   }
 
   .btn-batal {
-    padding: 0.6rem 1.25rem;
-    border: 1px solid rgba(255, 255, 255, 0.1);
     background: transparent;
-    color: #64748b;
-    border-radius: 0.65rem;
-    font-size: 0.875rem;
-    font-weight: 600;
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    color: #cbd5e1;
+    padding: 0.6rem 1.25rem;
+    border-radius: 0.75rem;
+    font-size: 0.9rem;
+    font-weight: 500;
     cursor: pointer;
     transition: all 0.2s;
-    font-family: "Inter", sans-serif;
   }
 
   .btn-batal:hover {
     background: rgba(255, 255, 255, 0.05);
-    color: #94a3b8;
+    color: #f8fafc;
   }
 
   .btn-simpan {
-    padding: 0.6rem 1.5rem;
     border: none;
     color: white;
-    border-radius: 0.65rem;
-    font-size: 0.875rem;
+    padding: 0.6rem 1.5rem;
+    border-radius: 0.75rem;
+    font-size: 0.9rem;
     font-weight: 700;
     cursor: pointer;
     transition: all 0.2s;
@@ -1349,52 +1389,70 @@
 
   /* ===== PRINT STYLES ===== */
   @media print {
+    /* 1. Paksa background jadi putih bersih dan hapus margin default */
     :global(body) {
       background: white !important;
       color: black !important;
+      margin: 0 !important;
+      padding: 0 !important;
     }
 
+    /* 2. HILANGKAN TOTAL elemen UI web agar tidak memakan spasi kosong */
+    .app-shell,
+    .modal-backdrop {
+      display: none !important;
+    }
+
+    /* 3. Tampilkan KHUSUS elemen cetak (Header dan Tabel PDF) */
+    .print\:block {
+      display: block !important;
+    }
+
+    /* 4. Atur format kertas otomatis ke A4 tanpa header/footer bawaan browser */
+    @page {
+      size: A4 portrait;
+      margin: 1.5cm; /* Memberikan margin putih yang rapi di sekeliling tabel */
+    }
+
+    /* 5. Desain Tabel PDF */
     .print-header {
       text-align: center;
-      padding: 1rem;
+      padding-bottom: 1rem;
       border-bottom: 2px solid black;
-      margin-bottom: 1rem;
+      margin-bottom: 1.5rem;
     }
 
     .print-header h1 {
       font-size: 1.4rem;
-      font-weight: 800;
+      margin: 0 0 0.5rem 0;
       text-transform: uppercase;
+      letter-spacing: 1px;
     }
 
     .print-header p {
-      font-size: 0.85rem;
-      color: #555;
-      margin-top: 0.3rem;
+      font-size: 0.9rem;
+      color: #333;
+      margin: 0;
     }
 
     .print-table {
       width: 100%;
       border-collapse: collapse;
-      font-size: 0.85rem;
     }
 
     .print-table th,
     .print-table td {
-      border: 1px solid #ccc;
-      padding: 0.5rem 0.75rem;
+      border: 1px solid #000 !important; /* Paksa border hitam untuk PDF */
+      padding: 0.6rem 0.8rem;
       text-align: left;
+      font-size: 0.85rem;
     }
 
     .print-table th {
-      background: #f0f0f0;
-      font-weight: 700;
-      text-transform: uppercase;
-      font-size: 0.75rem;
-    }
-
-    .print-table tr:nth-child(even) {
-      background: #f9f9f9;
+      background-color: #f1f5f9 !important; /* Warna abu-abu muda untuk header tabel */
+      font-weight: bold;
+      -webkit-print-color-adjust: exact; /* Paksa browser mencetak warna background header */
+      print-color-adjust: exact;
     }
   }
 </style>
