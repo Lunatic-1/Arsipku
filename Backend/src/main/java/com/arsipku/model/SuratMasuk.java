@@ -18,60 +18,79 @@ public class SuratMasuk {
     public Long getId() {
         return id;
     }
+
     public void setId(Long id) {
         this.id = id;
     }
+
     public String getNomorSurat() {
         return nomorSurat;
     }
+
     public void setNomorSurat(String nomorSurat) {
         this.nomorSurat = nomorSurat;
     }
+
     public Date getTanggalSurat() {
         return tanggalSurat;
     }
+
     public void setTanggalSurat(Date tanggalSurat) {
         this.tanggalSurat = tanggalSurat;
     }
+
     public Date getTanggalDiterima() {
         return tanggalDiterima;
     }
+
     public void setTanggalDiterima(Date tanggalDiterima) {
         this.tanggalDiterima = tanggalDiterima;
     }
+
     public String getPengirim() {
         return pengirim;
     }
+
     public void setPengirim(String pengirim) {
         this.pengirim = pengirim;
     }
+
     public String getPerihal() {
         return perihal;
     }
+
     public void setPerihal(String perihal) {
         this.perihal = perihal;
     }
+
     public String getKeterangan() {
         return keterangan;
     }
+
     public void setKeterangan(String keterangan) {
         this.keterangan = keterangan;
     }
+
     public String getFilePath() {
         return filePath;
     }
+
     public void setFilePath(String filePath) {
         this.filePath = filePath;
     }
+
     public Timestamp getCreatedAt() {
         return createdAt;
     }
+
     public void setCreatedAt(Timestamp createdAt) {
         this.createdAt = createdAt;
     }
+
     public Timestamp getUpdatedAt() {
         return updatedAt;
     }
+
     public void setUpdatedAt(Timestamp updatedAt) {
         this.updatedAt = updatedAt;
     }

@@ -1,0 +1,11 @@
+
+POST http://localhost:8000/api/surat-keluar/tambah
+Content-Type: application/json
+
+{
+  "nomorSurat": "003/SK/2026",
+  "tanggalSurat": "2026-06-22",
+  "tujuan": "Universitas Brawijaya",
+  "perihal": "Undangan Kerjasama Hackathon",
+  "keterangan": "Dikirim via Email"
+}
