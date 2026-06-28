@@ -30,6 +30,25 @@ public class Main {
         Connection conn = Database.getConnection();
         if (conn != null) {
             System.out.println("Sip! Database aman.");
+
+            // --- AUTO SETUP: Fitur Upload File ---
+            try {
+                // 1. Buat folder 'uploads' di dalam proyek jika belum ada
+                java.io.File uploadDir = new java.io.File("uploads");
+                if (!uploadDir.exists()) {
+                    uploadDir.mkdir();
+                    System.out.println("Folder 'uploads' berhasil dibuat untuk menyimpan file.");
+                }
+
+                // 2. Tambahkan kolom file_path ke tabel MySQL
+                java.sql.Statement stmt = conn.createStatement();
+                stmt.execute("ALTER TABLE surat_masuk ADD COLUMN IF NOT EXISTS file_path VARCHAR(255)");
+                stmt.execute("ALTER TABLE surat_keluar ADD COLUMN IF NOT EXISTS file_path VARCHAR(255)");
+                System.out.println("Migrasi kolom file_path berhasil dicek/ditambahkan.");
+            } catch (Exception e) {
+                System.out.println("Gagal setup folder/database: " + e.getMessage());
+            }
+            // -------------------------------------
         }
 
         HttpServer server = HttpServer.create(new InetSocketAddress(8000), 0);
@@ -103,6 +122,7 @@ public class Main {
                 exchange.sendResponseHeaders(405, -1);
             }
         }));
+
         // Endpoint Update Surat Masuk (POST)
         server.createContext("/api/surat-masuk/update", (exchange -> {
             exchange.getResponseHeaders().add("Access-Control-Allow-Origin", "*");
@@ -227,6 +247,22 @@ public class Main {
             OutputStream os = exchange.getResponseBody();
             os.write(jsonResponse.getBytes());
             os.close();
+        }));
+        // Endpoint untuk mengakses file (Preview)
+        server.createContext("/api/files/", (exchange -> {
+            String path = exchange.getRequestURI().getPath(); // /api/files/uploads/123_file.pdf
+            String filename = path.replace("/api/files/", "");
+            java.io.File file = new java.io.File(filename);
+
+            if (file.exists()) {
+                exchange.getResponseHeaders().add("Content-Type", "application/octet-stream");
+                exchange.sendResponseHeaders(200, file.length());
+                java.io.OutputStream os = exchange.getResponseBody();
+                java.nio.file.Files.copy(file.toPath(), os);
+                os.close();
+            } else {
+                exchange.sendResponseHeaders(404, -1);
+            }
         }));
 
         server.setExecutor(null);

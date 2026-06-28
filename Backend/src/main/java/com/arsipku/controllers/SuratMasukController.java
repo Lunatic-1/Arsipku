@@ -1,111 +1,74 @@
 package com.arsipku.controllers;
 
-import com.arsipku.config.Database;
-import com.arsipku.model.SuratMasuk;
 import com.google.gson.Gson;
-import com.google.gson.GsonBuilder; // Tambahan import untuk format tanggal
-
+import com.google.gson.JsonArray;
+import com.google.gson.JsonObject;
 import java.sql.Connection;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
-import java.util.ArrayList;
-import java.util.List;
+import java.sql.Statement;
 
 public class SuratMasukController {
 
-    public static String getAll(String sortOrder) {
-        List<SuratMasuk> listSurat = new ArrayList<>();
-        String order = "DESC".equalsIgnoreCase(sortOrder) ? "DESC" : "ASC";
-        String sql = "SELECT * FROM surat_masuk ORDER BY tanggal_surat " + order + ", id " + order;
+    // Helper: Mengubah Base64 dari Svelte menjadi File Fisik
+    private static String saveFile(JsonObject json) {
+        if (json.has("fileBase64") && !json.get("fileBase64").isJsonNull()) {
+            String base64Data = json.get("fileBase64").getAsString();
+            if (!base64Data.isEmpty()) {
+                // Ambil nama asli atau gunakan default
+                String originalName = json.has("fileName") ? json.get("fileName").getAsString() : "dokumen.pdf";
+                // Bikin nama unik biar file tidak saling timpa kalau namanya sama
+                String uniqueName = System.currentTimeMillis() + "_"
+                        + originalName.replaceAll("[^a-zA-Z0-9\\.\\-]", "_");
+                String path = "uploads/" + uniqueName;
 
-        try (Connection conn = Database.getConnection();
-                PreparedStatement stmt = conn.prepareStatement(sql);
-                ResultSet rs = stmt.executeQuery()) {
+                try {
+                    // Hapus metadata Svelte ("data:application/pdf;base64,...")
+                    if (base64Data.contains(",")) {
+                        base64Data = base64Data.split(",")[1];
+                    }
+                    byte[] decodedBytes = java.util.Base64.getDecoder().decode(base64Data);
+                    java.nio.file.Files.write(java.nio.file.Paths.get(path), decodedBytes);
+                    return path; // Kembalikan lokasi file untuk disimpan ke database
+                } catch (Exception e) {
+                    System.out.println("Gagal menyimpan file fisik: " + e.getMessage());
+                }
+            }
+        }
+        return null;
+    }
+
+    public static String getAll(String sortOrder) {
+        JsonArray array = new JsonArray();
+        try {
+            Connection conn = com.arsipku.config.Database.getConnection();
+            String sql = "SELECT * FROM surat_masuk ORDER BY tanggal_surat " + sortOrder;
+            Statement stmt = conn.createStatement();
+            ResultSet rs = stmt.executeQuery(sql);
 
             while (rs.next()) {
-                SuratMasuk surat = new SuratMasuk();
-                surat.setId(rs.getLong("id"));
-                surat.setNomorSurat(rs.getString("nomor_surat"));
-                surat.setTanggalSurat(rs.getDate("tanggal_surat"));
-                surat.setTanggalDiterima(rs.getDate("tanggal_diterima"));
-                surat.setPengirim(rs.getString("pengirim"));
-                surat.setPerihal(rs.getString("perihal"));
-                surat.setKeterangan(rs.getString("keterangan"));
-                surat.setFilePath(rs.getString("file_path"));
+                JsonObject obj = new JsonObject();
+                obj.addProperty("nomorSurat", rs.getString("nomor_surat"));
+                obj.addProperty("tanggalSurat", rs.getString("tanggal_surat"));
+                obj.addProperty("tanggalDiterima", rs.getString("tanggal_diterima"));
+                obj.addProperty("pengirim", rs.getString("pengirim"));
+                obj.addProperty("perihal", rs.getString("perihal"));
+                obj.addProperty("keterangan", rs.getString("keterangan"));
 
-                listSurat.add(surat);
+                // Jangan lupa kirim info path file ke Svelte!
+                obj.addProperty("filePath", rs.getString("file_path"));
+                array.add(obj);
             }
         } catch (Exception e) {
-            System.out.println("Gagal ambil data surat: " + e.getMessage());
+            e.printStackTrace();
         }
-
-        Gson gson = new GsonBuilder().setDateFormat("yyyy-MM-dd").create();
-        return gson.toJson(listSurat);
+        return new Gson().toJson(array);
     }
 
     public static String insert(String jsonBody) {
-        // Pindahkan SEMUA proses ke dalam try-catch agar kalau ada error tidak "socket
-        // hang up"
-        try {
-            // Beri tahu Gson bahwa format tanggal kita adalah Tahun-Bulan-Tanggal
-            Gson gson = new GsonBuilder().setDateFormat("yyyy-MM-dd").create();
-            SuratMasuk surat = gson.fromJson(jsonBody, SuratMasuk.class);
-
-            String sql = "INSERT INTO surat_masuk (nomor_surat, tanggal_surat, tanggal_diterima, pengirim, perihal, keterangan) VALUES (?, ?, ?, ?, ?, ?)";
-
-            try (Connection conn = Database.getConnection();
-                    PreparedStatement stmt = conn.prepareStatement(sql)) {
-
-                stmt.setString(1, surat.getNomorSurat());
-                stmt.setDate(2, surat.getTanggalSurat());
-                stmt.setDate(3, surat.getTanggalDiterima());
-                stmt.setString(4, surat.getPengirim());
-                stmt.setString(5, surat.getPerihal());
-                stmt.setString(6, surat.getKeterangan());
-
-                stmt.executeUpdate();
-
-                return "{\"status\":\"sukses\", \"pesan\":\"Data surat masuk berhasil disimpan!\"}";
-            }
-
-        } catch (Exception e) {
-            // Jika ada format JSON yang salah, tangkap di sini dan beri tahu REST Client
-            System.out.println("Gagal insert data surat: " + e.getMessage());
-            e.printStackTrace(); // Tampilkan detail error di terminal VS Code
-            return "{\"status\":\"error\", \"pesan\":\"Gagal memproses data: " + e.getMessage() + "\"}";
-        }
-    }
-
-    public static String delete(String jsonBody) {
-        com.google.gson.Gson gson = new com.google.gson.Gson();
-        com.google.gson.JsonObject json = gson.fromJson(jsonBody, com.google.gson.JsonObject.class);
-        String nomorSurat = json.get("nomorSurat").getAsString();
-
-        com.google.gson.JsonObject response = new com.google.gson.JsonObject();
-        try {
-            java.sql.Connection conn = com.arsipku.config.Database.getConnection();
-            String sql = "DELETE FROM surat_masuk WHERE nomor_surat = ?";
-            java.sql.PreparedStatement pstmt = conn.prepareStatement(sql);
-            pstmt.setString(1, nomorSurat);
-
-            int rowsAffected = pstmt.executeUpdate();
-            if (rowsAffected > 0) {
-                response.addProperty("status", "sukses");
-                response.addProperty("pesan", "Data surat masuk berhasil dihapus!");
-            } else {
-                response.addProperty("status", "gagal");
-                response.addProperty("pesan", "Nomor surat tidak ditemukan.");
-            }
-        } catch (Exception e) {
-            response.addProperty("status", "error");
-            response.addProperty("pesan", "Gagal menghapus database: " + e.getMessage());
-        }
-        return gson.toJson(response);
-    }
-
-    public static String update(String jsonBody) {
-        com.google.gson.Gson gson = new com.google.gson.Gson();
-        com.google.gson.JsonObject json = gson.fromJson(jsonBody, com.google.gson.JsonObject.class);
+        Gson gson = new Gson();
+        JsonObject json = gson.fromJson(jsonBody, JsonObject.class);
+        JsonObject response = new JsonObject();
 
         String nomorSurat = json.get("nomorSurat").getAsString();
         String tanggalSurat = json.get("tanggalSurat").getAsString();
@@ -114,31 +77,100 @@ public class SuratMasukController {
         String perihal = json.get("perihal").getAsString();
         String keterangan = json.has("keterangan") ? json.get("keterangan").getAsString() : "";
 
-        com.google.gson.JsonObject response = new com.google.gson.JsonObject();
-        try {
-            java.sql.Connection conn = com.arsipku.config.Database.getConnection();
-            // Update semua data KECUALI nomor_surat karena itu adalah Primary Key
-            String sql = "UPDATE surat_masuk SET tanggal_surat = ?, tanggal_diterima = ?, pengirim = ?, perihal = ?, keterangan = ? WHERE nomor_surat = ?";
-            java.sql.PreparedStatement pstmt = conn.prepareStatement(sql);
+        // Eksekusi pembuatan file
+        String filePath = saveFile(json);
 
+        try {
+            Connection conn = com.arsipku.config.Database.getConnection();
+            String sql = "INSERT INTO surat_masuk (nomor_surat, tanggal_surat, tanggal_diterima, pengirim, perihal, keterangan, file_path) VALUES (?, ?, ?, ?, ?, ?, ?)";
+            PreparedStatement pstmt = conn.prepareStatement(sql);
+            pstmt.setString(1, nomorSurat);
+            pstmt.setString(2, tanggalSurat);
+            pstmt.setString(3, tanggalDiterima);
+            pstmt.setString(4, pengirim);
+            pstmt.setString(5, perihal);
+            pstmt.setString(6, keterangan);
+            pstmt.setString(7, filePath); // Simpan path-nya
+
+            pstmt.executeUpdate();
+            response.addProperty("status", "sukses");
+            response.addProperty("pesan", "Data surat masuk beserta dokumen berhasil disimpan!");
+        } catch (Exception e) {
+            response.addProperty("status", "error");
+            response.addProperty("pesan", "Gagal menyimpan: " + e.getMessage());
+        }
+        return gson.toJson(response);
+    }
+
+    public static String update(String jsonBody) {
+        Gson gson = new Gson();
+        JsonObject json = gson.fromJson(jsonBody, JsonObject.class);
+        JsonObject response = new JsonObject();
+
+        String nomorSurat = json.get("nomorSurat").getAsString();
+        String tanggalSurat = json.get("tanggalSurat").getAsString();
+        String tanggalDiterima = json.get("tanggalDiterima").getAsString();
+        String pengirim = json.get("pengirim").getAsString();
+        String perihal = json.get("perihal").getAsString();
+        String keterangan = json.has("keterangan") ? json.get("keterangan").getAsString() : "";
+
+        // Cek apakah user meng-upload file baru saat edit
+        String newFilePath = saveFile(json);
+
+        try {
+            Connection conn = com.arsipku.config.Database.getConnection();
+            String sql;
+
+            // Logika cerdas: Kalau ada file baru, update path-nya. Kalau tidak, biarkan
+            // file lama.
+            if (newFilePath != null) {
+                sql = "UPDATE surat_masuk SET tanggal_surat = ?, tanggal_diterima = ?, pengirim = ?, perihal = ?, keterangan = ?, file_path = ? WHERE nomor_surat = ?";
+            } else {
+                sql = "UPDATE surat_masuk SET tanggal_surat = ?, tanggal_diterima = ?, pengirim = ?, perihal = ?, keterangan = ? WHERE nomor_surat = ?";
+            }
+
+            PreparedStatement pstmt = conn.prepareStatement(sql);
             pstmt.setString(1, tanggalSurat);
             pstmt.setString(2, tanggalDiterima);
             pstmt.setString(3, pengirim);
             pstmt.setString(4, perihal);
             pstmt.setString(5, keterangan);
-            pstmt.setString(6, nomorSurat);
 
-            int rowsAffected = pstmt.executeUpdate();
-            if (rowsAffected > 0) {
-                response.addProperty("status", "sukses");
-                response.addProperty("pesan", "Data surat masuk berhasil diperbarui!");
+            if (newFilePath != null) {
+                pstmt.setString(6, newFilePath);
+                pstmt.setString(7, nomorSurat);
             } else {
-                response.addProperty("status", "gagal");
-                response.addProperty("pesan", "Data tidak ditemukan!");
+                pstmt.setString(6, nomorSurat);
             }
+
+            pstmt.executeUpdate();
+            response.addProperty("status", "sukses");
+            response.addProperty("pesan", "Data surat masuk berhasil diperbarui!");
         } catch (Exception e) {
             response.addProperty("status", "error");
-            response.addProperty("pesan", "Gagal update database: " + e.getMessage());
+            response.addProperty("pesan", "Gagal update: " + e.getMessage());
+        }
+        return gson.toJson(response);
+    }
+
+    public static String delete(String jsonBody) {
+        Gson gson = new Gson();
+        JsonObject json = gson.fromJson(jsonBody, JsonObject.class);
+        JsonObject response = new JsonObject();
+        String nomorSurat = json.get("nomorSurat").getAsString();
+
+        try {
+            Connection conn = com.arsipku.config.Database.getConnection();
+            String sql = "DELETE FROM surat_masuk WHERE nomor_surat = ?";
+            PreparedStatement pstmt = conn.prepareStatement(sql);
+            pstmt.setString(1, nomorSurat);
+            pstmt.executeUpdate();
+
+            response.addProperty("status", "sukses");
+            response.addProperty("pesan", "Data berhasil dihapus!");
+        } catch (Exception e) {
+            response.addProperty("status", "error");
+            response.addProperty("pesan", "Gagal menghapus: " + e.getMessage());
         }
         return gson.toJson(response);
     }

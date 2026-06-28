@@ -1,6 +1,9 @@
 <script>
   import "./app.css";
   import { onMount } from "svelte";
+  import Toast from "./lib/Toast.svelte";
+  import ModalKonfirmasi from "./lib/ModalKonfirmasi.svelte";
+  import ModalDetail from "./lib/ModalDetail.svelte";
 
   /** @type {any[]} */
   let dataSuratMasuk = [];
@@ -10,16 +13,61 @@
   let activeTab = "masuk";
   let showModal = false;
   let isLoading = false;
-
-  // Penanda mode edit
   let isEditMode = false;
 
-  // Variabel untuk fitur pencarian
   let searchQuery = "";
-  // Variabel untuk sorting
   let sortOrder = "DESC";
 
-  // Struktur form input data
+  // ===== TOAST =====
+  /** @type {{ id: number; message: string; type: 'sukses' | 'error' }[]} */
+  let toasts = [];
+
+  function addToast(message, type = "sukses") {
+    const id = Date.now();
+    toasts = [...toasts, { id, message, type }];
+    setTimeout(() => removeToast(id), 3500);
+  }
+
+  function removeToast(id) {
+    toasts = toasts.filter((t) => t.id !== id);
+  }
+
+  // ===== MODAL KONFIRMASI HAPUS =====
+  let showKonfirmasi = false;
+  let konfirmasiNomor = "";
+  let konfirmasiCallback = null;
+
+  function bukaKonfirmasi(nomorSurat, callback) {
+    konfirmasiNomor = nomorSurat;
+    konfirmasiCallback = callback;
+    showKonfirmasi = true;
+  }
+
+  function konfirmasiHapus() {
+    if (konfirmasiCallback) konfirmasiCallback();
+    showKonfirmasi = false;
+    konfirmasiNomor = "";
+    konfirmasiCallback = null;
+  }
+
+  function batalKonfirmasi() {
+    showKonfirmasi = false;
+    konfirmasiNomor = "";
+    konfirmasiCallback = null;
+  }
+
+  // ===== MODAL DETAIL =====
+  let showDetail = false;
+  let detailSurat = null;
+  let detailType = "masuk";
+
+  function handleLihatDetail(surat) {
+    detailSurat = surat;
+    detailType = activeTab;
+    showDetail = true;
+  }
+
+  // ===== FORM DATA =====
   let formDataMasuk = {
     nomorSurat: "",
     tanggalSurat: "",
@@ -36,7 +84,7 @@
     keterangan: "",
   };
 
-  // Ambil Data dari API
+  // ===== FETCH DATA =====
   async function fetchSuratMasuk() {
     isLoading = true;
     try {
@@ -70,7 +118,7 @@
     fetchSuratKeluar();
   });
 
-  // Logika Filter Pencarian Otomatis
+  // ===== FILTER =====
   $: filteredSuratMasuk = dataSuratMasuk.filter(
     (surat) =>
       surat.nomorSurat.toLowerCase().includes(searchQuery.toLowerCase()) ||
@@ -85,11 +133,10 @@
       surat.perihal.toLowerCase().includes(searchQuery.toLowerCase()),
   );
 
-  // Simpan Data Baru / Update Data
+  // ===== SUBMIT =====
   async function handleSubmit() {
     const isMasuk = activeTab === "masuk";
 
-    // Tentukan URL berdasarkan isEditMode
     let url = "";
     if (isMasuk) {
       url = isEditMode
@@ -112,9 +159,9 @@
 
       const result = await response.json();
       if (result.status === "sukses") {
-        alert(result.pesan);
+        addToast(result.pesan, "sukses");
         showModal = false;
-        isEditMode = false; // Reset mode
+        isEditMode = false;
         if (isMasuk) {
           formDataMasuk = {
             nomorSurat: "",
@@ -136,14 +183,14 @@
           fetchSuratKeluar();
         }
       } else {
-        alert("Error: " + result.pesan);
+        addToast("Error: " + result.pesan, "error");
       }
     } catch (error) {
-      alert("Gagal terhubung ke server Java!");
+      addToast("Gagal terhubung ke server Java!", "error");
     }
   }
 
-  // Fungsi Pemicu Edit Data
+  // ===== EDIT =====
   function handleEdit(surat) {
     isEditMode = true;
     showModal = true;
@@ -154,31 +201,32 @@
     }
   }
 
-  // Fungsi Hapus Data
-  async function handleHapus(nomorSurat) {
-    if (!confirm(`Hapus surat nomor: ${nomorSurat}?`)) return;
+  // ===== HAPUS =====
+  function handleHapus(nomorSurat) {
+    bukaKonfirmasi(nomorSurat, async () => {
+      const isMasuk = activeTab === "masuk";
+      const url = isMasuk
+        ? "http://localhost:8000/api/surat-masuk/hapus"
+        : "http://localhost:8000/api/surat-keluar/hapus";
 
-    const isMasuk = activeTab === "masuk";
-    const url = isMasuk
-      ? "http://localhost:8000/api/surat-masuk/hapus"
-      : "http://localhost:8000/api/surat-keluar/hapus";
+      try {
+        const response = await fetch(url, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ nomorSurat }),
+        });
 
-    try {
-      const response = await fetch(url, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ nomorSurat }),
-      });
-
-      const result = await response.json();
-      if (result.status === "sukses") {
-        isMasuk ? fetchSuratMasuk() : fetchSuratKeluar();
-      } else {
-        alert("Error: " + result.pesan);
+        const result = await response.json();
+        if (result.status === "sukses") {
+          addToast("Surat berhasil dihapus.", "sukses");
+          isMasuk ? fetchSuratMasuk() : fetchSuratKeluar();
+        } else {
+          addToast("Error: " + result.pesan, "error");
+        }
+      } catch (error) {
+        addToast("Gagal menghapus data dari server!", "error");
       }
-    } catch (error) {
-      alert("Gagal menghapus data dari server!");
-    }
+    });
   }
 
   function handleCetak() {
@@ -192,6 +240,7 @@
   }
 </script>
 
+<!-- PRINT HEADER -->
 <div class="hidden print:block print-header">
   <h1>LAPORAN ARSIP SURAT {activeTab === "masuk" ? "MASUK" : "KELUAR"}</h1>
   <p>
@@ -205,6 +254,7 @@
   </p>
 </div>
 
+<!-- APP SHELL -->
 <div class="app-shell print:hidden">
   <aside class="sidebar">
     <div class="sidebar-brand">
@@ -329,16 +379,14 @@
           >
         {/if}
       </div>
-
       <div class="toolbar-actions">
         <button
           class="btn-sort {sortOrder === 'ASC' ? 'btn-sort-asc' : ''}"
           on:click={toggleSort}
-          title="Urutkan berdasarkan tanggal"
         >
           {sortOrder === "DESC" ? "↓ Terbaru" : "↑ Terlama"}
         </button>
-        <button class="btn-print" on:click={handleCetak}> 🖨️ Cetak PDF </button>
+        <button class="btn-print" on:click={handleCetak}>🖨️ Cetak PDF</button>
       </div>
     </div>
 
@@ -383,17 +431,19 @@
                     <td class="td-aksi">
                       <div class="aksi-flex">
                         <button
-                          class="btn-edit"
-                          on:click={() => handleEdit(surat)}
+                          class="btn-detail"
+                          on:click={() => handleLihatDetail(surat)}
+                          >👁 Detail</button
                         >
-                          ✏️ Edit
-                        </button>
+                        <button
+                          class="btn-edit"
+                          on:click={() => handleEdit(surat)}>✏️ Edit</button
+                        >
                         <button
                           class="btn-hapus"
                           on:click={() => handleHapus(surat.nomorSurat)}
+                          >🗑 Hapus</button
                         >
-                          🗑 Hapus
-                        </button>
                       </div>
                     </td>
                   </tr>
@@ -436,17 +486,19 @@
                   <td class="td-aksi">
                     <div class="aksi-flex">
                       <button
-                        class="btn-edit"
-                        on:click={() => handleEdit(surat)}
+                        class="btn-detail"
+                        on:click={() => handleLihatDetail(surat)}
+                        >👁 Detail</button
                       >
-                        ✏️ Edit
-                      </button>
+                      <button
+                        class="btn-edit"
+                        on:click={() => handleEdit(surat)}>✏️ Edit</button
+                      >
                       <button
                         class="btn-hapus"
                         on:click={() => handleHapus(surat.nomorSurat)}
+                        >🗑 Hapus</button
                       >
-                        🗑 Hapus
-                      </button>
                     </div>
                   </td>
                 </tr>
@@ -459,6 +511,7 @@
   </main>
 </div>
 
+<!-- PRINT TABLE -->
 <div class="hidden print:block">
   <table class="print-table">
     <thead>
@@ -484,6 +537,7 @@
   </table>
 </div>
 
+<!-- MODAL TAMBAH / EDIT -->
 {#if showModal}
   <div class="modal-backdrop" on:click|self={() => (showModal = false)}>
     <div class="modal-box">
@@ -645,10 +699,8 @@
           <button
             type="button"
             class="btn-batal"
-            on:click={() => (showModal = false)}
+            on:click={() => (showModal = false)}>Batal</button
           >
-            Batal
-          </button>
           <button
             type="submit"
             class="btn-simpan {activeTab === 'masuk'
@@ -663,35 +715,89 @@
   </div>
 {/if}
 
+<!-- KOMPONEN BARU -->
+<Toast {toasts} {removeToast} />
+
+<ModalKonfirmasi
+  show={showKonfirmasi}
+  nomorSurat={konfirmasiNomor}
+  onConfirm={konfirmasiHapus}
+  onCancel={batalKonfirmasi}
+/>
+
+<ModalDetail
+  show={showDetail}
+  surat={detailSurat}
+  type={detailType}
+  onClose={() => (showDetail = false)}
+/>
+
 <style>
-  /* Menambahkan styles baru untuk fitur edit */
+  /* ===== AKSI ===== */
+  .aksi-flex {
+    display: flex;
+    gap: 0.4rem;
+    justify-content: flex-end;
+  }
+
+  .btn-detail {
+    background: rgba(100, 116, 139, 0.15);
+    color: #94a3b8;
+    border: 1px solid rgba(100, 116, 139, 0.25);
+    padding: 0.4rem 0.65rem;
+    border-radius: 0.5rem;
+    cursor: pointer;
+    font-size: 0.78rem;
+    font-weight: 600;
+    transition: all 0.2s;
+    white-space: nowrap;
+  }
+  .btn-detail:hover {
+    background: rgba(100, 116, 139, 0.25);
+    color: #cbd5e1;
+  }
+
   .btn-edit {
     background: rgba(59, 130, 246, 0.15);
     color: #93c5fd;
     border: 1px solid rgba(59, 130, 246, 0.3);
-    padding: 0.4rem 0.7rem;
+    padding: 0.4rem 0.65rem;
     border-radius: 0.5rem;
     cursor: pointer;
-    font-size: 0.8rem;
+    font-size: 0.78rem;
     font-weight: 600;
     transition: all 0.2s;
+    white-space: nowrap;
   }
   .btn-edit:hover {
     background: rgba(59, 130, 246, 0.25);
     color: #bfdbfe;
   }
-  .aksi-flex {
-    display: flex;
-    gap: 0.5rem;
-    justify-content: flex-end;
+
+  .btn-hapus {
+    background: rgba(239, 68, 68, 0.15);
+    color: #fca5a5;
+    border: 1px solid rgba(239, 68, 68, 0.3);
+    padding: 0.4rem 0.65rem;
+    border-radius: 0.5rem;
+    cursor: pointer;
+    font-size: 0.78rem;
+    font-weight: 600;
+    transition: all 0.2s;
+    white-space: nowrap;
   }
+  .btn-hapus:hover {
+    background: rgba(239, 68, 68, 0.25);
+    color: #fecaca;
+  }
+
   .disabled-input {
     background: rgba(0, 0, 0, 0.2) !important;
     opacity: 0.6;
     cursor: not-allowed;
   }
 
-  /* ===== BASE STYLES ===== */
+  /* ===== BASE ===== */
   :global(body) {
     margin: 0;
     font-family: "Inter", sans-serif;
@@ -699,11 +805,10 @@
     color: #f1f5f9;
   }
 
-  /* ===== APP SHELL ===== */
   .app-shell {
     display: flex;
     height: 100vh;
-    overflow: hidden; /* Kunci total tinggi agar tidak ada scroll di luar */
+    overflow: hidden;
   }
 
   /* ===== SIDEBAR ===== */
@@ -714,6 +819,7 @@
     display: flex;
     flex-direction: column;
     padding: 1.5rem;
+    flex-shrink: 0;
   }
 
   .sidebar-brand {
@@ -767,7 +873,6 @@
     text-align: left;
     width: 100%;
   }
-
   .nav-item:hover {
     background: rgba(255, 255, 255, 0.06);
     color: #e2e8f0;
@@ -803,7 +908,6 @@
     background: rgba(99, 102, 241, 0.2);
     color: #a5b4fc;
   }
-
   .badge-emerald {
     background: rgba(16, 185, 129, 0.2);
     color: #6ee7b7;
@@ -820,12 +924,12 @@
   /* ===== MAIN CONTENT ===== */
   .main-content {
     flex: 1;
-    padding: 2rem 3rem 2rem 3rem;
+    padding: 2rem 3rem;
     display: flex;
     flex-direction: column;
     gap: 2rem;
     height: 100vh;
-    overflow: hidden; /* Tidak ada scroll di luar tabel */
+    overflow: hidden;
     min-width: 0;
   }
 
@@ -864,7 +968,6 @@
     align-items: center;
     gap: 0.5rem;
   }
-
   .btn-tambah:hover {
     transform: translateY(-2px);
     box-shadow: 0 6px 20px rgba(79, 70, 229, 0.4);
@@ -897,7 +1000,6 @@
     );
     border-color: rgba(99, 102, 241, 0.25);
   }
-
   .stat-keluar {
     background: linear-gradient(
       135deg,
@@ -906,7 +1008,6 @@
     );
     border-color: rgba(16, 185, 129, 0.25);
   }
-
   .stat-total {
     background: linear-gradient(
       135deg,
@@ -919,20 +1020,20 @@
   .stat-icon {
     font-size: 2rem;
   }
-
   .stat-label {
     font-size: 0.75rem;
     color: #64748b;
     text-transform: uppercase;
     letter-spacing: 0.05em;
     font-weight: 600;
+    margin: 0 0 0.2rem 0;
   }
-
   .stat-value {
     font-size: 2rem;
     font-weight: 800;
     color: #f1f5f9;
     line-height: 1.1;
+    margin: 0;
   }
 
   /* ===== TOOLBAR ===== */
@@ -969,8 +1070,8 @@
     font-family: "Inter", sans-serif;
     outline: none;
     transition: border-color 0.2s;
+    box-sizing: border-box;
   }
-
   .search-input:focus {
     border-color: #6366f1;
     background: rgba(255, 255, 255, 0.08);
@@ -1004,11 +1105,9 @@
     font-weight: 500;
     transition: all 0.2s;
   }
-
   .btn-sort:hover {
     background: rgba(255, 255, 255, 0.1);
   }
-
   .btn-sort-asc {
     background: rgba(99, 102, 241, 0.1);
     color: #a5b4fc;
@@ -1026,20 +1125,19 @@
     font-weight: 500;
     transition: all 0.2s;
   }
-
   .btn-print:hover {
     background: #334155;
     border-color: rgba(255, 255, 255, 0.2);
   }
 
-  /* ===== TABLE AREA ===== */
+  /* ===== TABLE ===== */
   .table-card {
     background: rgba(30, 41, 59, 0.5);
     border: 1px solid rgba(255, 255, 255, 0.05);
     border-radius: 1rem;
     backdrop-filter: blur(10px);
-    flex: 1; /* Isi sisa tinggi dari .main-content */
-    min-height: 0; /* Wajib agar flex child bisa menyusut */
+    flex: 1;
+    min-height: 0;
     display: flex;
     flex-direction: column;
     overflow: hidden;
@@ -1049,20 +1147,17 @@
     padding: 4rem 2rem;
     text-align: center;
   }
-
   .empty-icon {
     font-size: 3rem;
     margin-bottom: 1rem;
     opacity: 0.5;
   }
-
   .empty-title {
     font-size: 1.1rem;
     font-weight: 600;
     color: #cbd5e1;
     margin: 0 0 0.5rem 0;
   }
-
   .empty-sub {
     font-size: 0.9rem;
     color: #64748b;
@@ -1085,35 +1180,27 @@
     }
   }
 
-  /* Tabel wrapper mengisi sisa ruang dari .table-card dan scroll secara internal */
   .table-wrapper {
     overflow-x: auto;
     overflow-y: auto;
-    flex: 1; /* Isi tinggi tersisa di dalam .table-card */
-    min-height: 0; /* Wajib agar scroll internal bekerja */
+    flex: 1;
+    min-height: 0;
   }
 
   .table-wrapper::-webkit-scrollbar {
     width: 6px;
   }
-
   .table-wrapper::-webkit-scrollbar-track {
     background: transparent;
   }
-
-  /* Default: transparan */
   .table-wrapper::-webkit-scrollbar-thumb {
     background: transparent;
     border-radius: 999px;
     transition: background 0.3s ease;
   }
-
-  /* Muncul saat wrapper di-hover */
   .table-wrapper:hover::-webkit-scrollbar-thumb {
     background: #475569;
   }
-
-  /* Lebih terang saat thumb-nya sendiri di-hover */
   .table-wrapper:hover::-webkit-scrollbar-thumb:hover {
     background: #64748b;
   }
@@ -1133,15 +1220,17 @@
     text-transform: uppercase;
     color: #64748b;
     text-align: left;
+    position: sticky;
+    top: 0;
+    z-index: 1;
   }
 
   .th-no {
     width: 50px;
     text-align: center;
   }
-
   .th-aksi {
-    width: 150px;
+    width: 200px;
     text-align: center;
   }
 
@@ -1149,11 +1238,9 @@
     border-bottom: 1px solid rgba(255, 255, 255, 0.04);
     transition: background 0.15s;
   }
-
   .table-row:hover {
     background: rgba(255, 255, 255, 0.04);
   }
-
   .table-row:last-child {
     border-bottom: none;
   }
@@ -1169,25 +1256,21 @@
     font-size: 0.8rem;
     text-align: center;
   }
-
   .td-date {
     color: #94a3b8;
     font-size: 0.82rem;
     white-space: nowrap;
   }
-
   .td-name {
     font-weight: 500;
     color: #e2e8f0;
   }
-
   .td-perihal {
     color: #94a3b8;
-    max-width: 260px;
+    max-width: 220px;
   }
-
   .td-aksi {
-    text-align: center;
+    text-align: right;
   }
 
   .badge-nomor {
@@ -1211,24 +1294,7 @@
     border: 1px solid rgba(16, 185, 129, 0.25);
   }
 
-  .btn-hapus {
-    background: rgba(239, 68, 68, 0.15);
-    color: #fca5a5;
-    border: 1px solid rgba(239, 68, 68, 0.3);
-    padding: 0.4rem 0.7rem;
-    border-radius: 0.5rem;
-    cursor: pointer;
-    font-size: 0.8rem;
-    font-weight: 600;
-    transition: all 0.2s;
-  }
-
-  .btn-hapus:hover {
-    background: rgba(239, 68, 68, 0.25);
-    color: #fecaca;
-  }
-
-  /* ===== MODAL ===== */
+  /* ===== MODAL TAMBAH/EDIT ===== */
   .modal-backdrop {
     position: fixed;
     top: 0;
@@ -1297,7 +1363,6 @@
     color: #f1f5f9;
     margin: 0;
   }
-
   .modal-sub {
     font-size: 0.78rem;
     color: #94a3b8;
@@ -1312,7 +1377,6 @@
     cursor: pointer;
     transition: color 0.2s;
   }
-
   .modal-close:hover {
     color: #f8fafc;
   }
@@ -1341,7 +1405,6 @@
     font-weight: 500;
     color: #cbd5e1;
   }
-
   .required {
     color: #ef4444;
   }
@@ -1357,7 +1420,6 @@
     transition: all 0.2s;
     outline: none;
   }
-
   .form-input:focus {
     border-color: #6366f1;
     background: rgba(15, 23, 42, 0.8);
@@ -1389,7 +1451,6 @@
     cursor: pointer;
     transition: all 0.2s;
   }
-
   .btn-batal:hover {
     background: rgba(255, 255, 255, 0.05);
     color: #f8fafc;
@@ -1422,7 +1483,7 @@
     filter: brightness(1.1);
   }
 
-  /* ===== PRINT STYLES ===== */
+  /* ===== PRINT ===== */
   @media print {
     :global(body) {
       background: white !important;
@@ -1430,12 +1491,10 @@
       margin: 0 !important;
       padding: 0 !important;
     }
-
     .app-shell,
     .modal-backdrop {
       display: none !important;
     }
-
     .print\:block {
       display: block !important;
     }
@@ -1451,14 +1510,12 @@
       border-bottom: 2px solid black;
       margin-bottom: 1.5rem;
     }
-
     .print-header h1 {
       font-size: 1.4rem;
       margin: 0 0 0.5rem 0;
       text-transform: uppercase;
       letter-spacing: 1px;
     }
-
     .print-header p {
       font-size: 0.9rem;
       color: #333;
@@ -1469,7 +1526,6 @@
       width: 100%;
       border-collapse: collapse;
     }
-
     .print-table th,
     .print-table td {
       border: 1px solid #000 !important;
@@ -1477,7 +1533,6 @@
       text-align: left;
       font-size: 0.85rem;
     }
-
     .print-table th {
       background-color: #f1f5f9 !important;
       font-weight: bold;
