@@ -67,7 +67,7 @@
     showDetail = true;
   }
 
-  // ===== FORM DATA (Ditambah fileBase64 & fileName) =====
+  // ===== FORM DATA =====
   let formDataMasuk = {
     nomorSurat: "",
     tanggalSurat: "",
@@ -88,7 +88,7 @@
     fileName: null,
   };
 
-  // ===== HANDLE FILE UPLOAD (Ubah ke Base64) =====
+  // ===== HANDLE FILE UPLOAD =====
   function handleFileUpload(e) {
     const file = e.target.files[0];
     if (!file) return;
@@ -219,7 +219,6 @@
   function handleEdit(surat) {
     isEditMode = true;
     showModal = true;
-    // Reset file uploads saat mode edit, agar tidak secara tidak sengaja ter-upload ulang jika tidak diganti
     if (activeTab === "masuk") {
       formDataMasuk = { ...surat, fileBase64: null, fileName: null };
     } else {
@@ -1322,7 +1321,6 @@
     width: 50px;
     text-align: center;
   }
-  /* Lebarkan kolom aksi agar muat untuk tombol file baru */
   .th-aksi {
     width: 280px;
     text-align: center;
@@ -1410,9 +1408,14 @@
     max-width: 500px;
     border-radius: 1.25rem;
     box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5);
-    overflow: hidden;
     border: 1px solid rgba(255, 255, 255, 0.1);
     animation: slideUp 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+
+    /* --- PENGATURAN TINGGI MODAL BARU --- */
+    max-height: 85vh;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
   }
 
   @keyframes slideUp {
@@ -1476,10 +1479,27 @@
   }
 
   .modal-form {
-    padding: 1.5rem;
+    padding: 1.25rem 1.5rem;
     display: flex;
     flex-direction: column;
-    gap: 1.25rem;
+    gap: 1rem;
+    /* --- SCROLL BAR OTOMATIS FORM --- */
+    overflow-y: auto;
+  }
+
+  /* Kustomisasi scrollbar dalam form */
+  .modal-form::-webkit-scrollbar {
+    width: 6px;
+  }
+  .modal-form::-webkit-scrollbar-track {
+    background: transparent;
+  }
+  .modal-form::-webkit-scrollbar-thumb {
+    background: #475569;
+    border-radius: 4px;
+  }
+  .modal-form::-webkit-scrollbar-thumb:hover {
+    background: #64748b;
   }
 
   .form-group {
@@ -1507,7 +1527,7 @@
     background: rgba(15, 23, 42, 0.6);
     border: 1px solid rgba(255, 255, 255, 0.1);
     color: #f1f5f9;
-    padding: 0.75rem 1rem;
+    padding: 0.6rem 1rem;
     border-radius: 0.75rem;
     font-size: 0.9rem;
     font-family: "Inter", sans-serif;
