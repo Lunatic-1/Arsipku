@@ -67,7 +67,7 @@
     showDetail = true;
   }
 
-  // ===== FORM DATA =====
+  // ===== FORM DATA (Ditambah fileBase64 & fileName) =====
   let formDataMasuk = {
     nomorSurat: "",
     tanggalSurat: "",
@@ -75,6 +75,8 @@
     pengirim: "",
     perihal: "",
     keterangan: "",
+    fileBase64: null,
+    fileName: null,
   };
   let formDataKeluar = {
     nomorSurat: "",
@@ -82,7 +84,26 @@
     tujuan: "",
     perihal: "",
     keterangan: "",
+    fileBase64: null,
+    fileName: null,
   };
+
+  // ===== HANDLE FILE UPLOAD (Ubah ke Base64) =====
+  function handleFileUpload(e) {
+    const file = e.target.files[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onloadend = () => {
+      if (activeTab === "masuk") {
+        formDataMasuk.fileBase64 = reader.result;
+        formDataMasuk.fileName = file.name;
+      } else {
+        formDataKeluar.fileBase64 = reader.result;
+        formDataKeluar.fileName = file.name;
+      }
+    };
+    reader.readAsDataURL(file);
+  }
 
   // ===== FETCH DATA =====
   async function fetchSuratMasuk() {
@@ -170,6 +191,8 @@
             pengirim: "",
             perihal: "",
             keterangan: "",
+            fileBase64: null,
+            fileName: null,
           };
           fetchSuratMasuk();
         } else {
@@ -179,6 +202,8 @@
             tujuan: "",
             perihal: "",
             keterangan: "",
+            fileBase64: null,
+            fileName: null,
           };
           fetchSuratKeluar();
         }
@@ -194,10 +219,11 @@
   function handleEdit(surat) {
     isEditMode = true;
     showModal = true;
+    // Reset file uploads saat mode edit, agar tidak secara tidak sengaja ter-upload ulang jika tidak diganti
     if (activeTab === "masuk") {
-      formDataMasuk = { ...surat };
+      formDataMasuk = { ...surat, fileBase64: null, fileName: null };
     } else {
-      formDataKeluar = { ...surat };
+      formDataKeluar = { ...surat, fileBase64: null, fileName: null };
     }
   }
 
@@ -240,7 +266,6 @@
   }
 </script>
 
-<!-- PRINT HEADER -->
 <div class="hidden print:block print-header">
   <h1>LAPORAN ARSIP SURAT {activeTab === "masuk" ? "MASUK" : "KELUAR"}</h1>
   <p>
@@ -254,7 +279,6 @@
   </p>
 </div>
 
-<!-- APP SHELL -->
 <div class="app-shell print:hidden">
   <aside class="sidebar">
     <div class="sidebar-brand">
@@ -323,6 +347,8 @@
             pengirim: "",
             perihal: "",
             keterangan: "",
+            fileBase64: null,
+            fileName: null,
           };
           formDataKeluar = {
             nomorSurat: "",
@@ -330,6 +356,8 @@
             tujuan: "",
             perihal: "",
             keterangan: "",
+            fileBase64: null,
+            fileName: null,
           };
           showModal = true;
         }}
@@ -430,6 +458,13 @@
                     <td class="td-perihal">{surat.perihal}</td>
                     <td class="td-aksi">
                       <div class="aksi-flex">
+                        {#if surat.filePath}
+                          <a
+                            href="http://localhost:8000/api/files/{surat.filePath}"
+                            target="_blank"
+                            class="btn-preview">📄 File</a
+                          >
+                        {/if}
                         <button
                           class="btn-detail"
                           on:click={() => handleLihatDetail(surat)}
@@ -485,6 +520,13 @@
                   <td class="td-perihal">{surat.perihal}</td>
                   <td class="td-aksi">
                     <div class="aksi-flex">
+                      {#if surat.filePath}
+                        <a
+                          href="http://localhost:8000/api/files/{surat.filePath}"
+                          target="_blank"
+                          class="btn-preview">📄 File</a
+                        >
+                      {/if}
                       <button
                         class="btn-detail"
                         on:click={() => handleLihatDetail(surat)}
@@ -511,7 +553,6 @@
   </main>
 </div>
 
-<!-- PRINT TABLE -->
 <div class="hidden print:block">
   <table class="print-table">
     <thead>
@@ -537,7 +578,6 @@
   </table>
 </div>
 
-<!-- MODAL TAMBAH / EDIT -->
 {#if showModal}
   <div class="modal-backdrop" on:click|self={() => (showModal = false)}>
     <div class="modal-box">
@@ -627,6 +667,23 @@
             />
           </div>
           <div class="form-group">
+            <label class="form-label">Upload Dokumen (Opsional)</label>
+            <input
+              type="file"
+              accept=".pdf, image/*"
+              on:change={handleFileUpload}
+              class="form-input"
+              style="padding: 0.5rem;"
+            />
+            {#if isEditMode}
+              <p
+                style="font-size: 0.75rem; color: #94a3b8; margin-top: 0.25rem;"
+              >
+                *Kosongkan jika tidak ingin mengubah file
+              </p>
+            {/if}
+          </div>
+          <div class="form-group">
             <label class="form-label">Keterangan</label>
             <textarea
               bind:value={formDataMasuk.keterangan}
@@ -685,6 +742,23 @@
             />
           </div>
           <div class="form-group">
+            <label class="form-label">Upload Dokumen (Opsional)</label>
+            <input
+              type="file"
+              accept=".pdf, image/*"
+              on:change={handleFileUpload}
+              class="form-input"
+              style="padding: 0.5rem;"
+            />
+            {#if isEditMode}
+              <p
+                style="font-size: 0.75rem; color: #94a3b8; margin-top: 0.25rem;"
+              >
+                *Kosongkan jika tidak ingin mengubah file
+              </p>
+            {/if}
+          </div>
+          <div class="form-group">
             <label class="form-label">Keterangan</label>
             <textarea
               bind:value={formDataKeluar.keterangan}
@@ -715,7 +789,6 @@
   </div>
 {/if}
 
-<!-- KOMPONEN BARU -->
 <Toast {toasts} {removeToast} />
 
 <ModalKonfirmasi
@@ -738,6 +811,26 @@
     display: flex;
     gap: 0.4rem;
     justify-content: flex-end;
+  }
+
+  .btn-preview {
+    background: rgba(168, 85, 247, 0.15);
+    color: #c084fc;
+    border: 1px solid rgba(168, 85, 247, 0.3);
+    padding: 0.4rem 0.65rem;
+    border-radius: 0.5rem;
+    cursor: pointer;
+    font-size: 0.78rem;
+    font-weight: 600;
+    transition: all 0.2s;
+    white-space: nowrap;
+    text-decoration: none;
+    display: inline-flex;
+    align-items: center;
+  }
+  .btn-preview:hover {
+    background: rgba(168, 85, 247, 0.25);
+    color: #d8b4fe;
   }
 
   .btn-detail {
@@ -1229,8 +1322,9 @@
     width: 50px;
     text-align: center;
   }
+  /* Lebarkan kolom aksi agar muat untuk tombol file baru */
   .th-aksi {
-    width: 200px;
+    width: 280px;
     text-align: center;
   }
 
